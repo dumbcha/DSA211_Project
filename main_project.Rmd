@@ -4,8 +4,31 @@ output: html_document
 date: "2023-02-16"
 ---
 
+# Scenario
+Based on 2022 Singapore HDB resale price (real-life) data sets, your team is supposed to construct a multiple regression model (for one particular district) to explain the HDB resale price (ResalePrice) in dollars with the given independent variables.
+  Date: Transaction Month
+  Type: HDB Types (3-, 4- or 5-room flats) 
+  Block: Block Number of Flat
+  Street: Flat’s Street Location
+  Story: Flat’s Story
+  Area: Size in Squared Meters
+  Model: Flat’s Model
+  LeaseBegin: Year of Lease Start
+  LeaseRemain: Period of Lease Remaining
+
+
+In your written report (it must be in pdf-format and within 10 pages, excluding the cover page and codes with computer outputs in Appendix), you are required to provide the detailed documentation of how you search your recommended model for inference purpose and justify each step in your data analysis. You are also expected to provide model assumption justification and hypothesis testing evidences (R-codes and computer outputs) with clear explanations that your recommended model is the best model among all the models considered according to BIC criterion. Based on your final recommended model, state clearly your recommendations and conclusions.
+## Marking Criteria
+Documentation and Presentation: 10 marks
+Methodology: 10 marks
+R-codes, computer outputs interpretation and graphical explanations: 15 marks 
+Recommendations and conclusions: 15 marks
+
+
+# Load Data in
 ```{r}
-1+1
+Sengkang <- read.csv("data/Sengkang2023P.csv", stringsAsFactors = TRUE)
+summary(Sengkang)
 ```
 
 ```{r}
