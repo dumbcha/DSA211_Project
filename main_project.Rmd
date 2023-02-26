@@ -53,13 +53,33 @@ Load Data In
 
 ```{r, echo = FALSE}
 options(width = 100, wrap = "none")
+
+library(dplyr)
 ```
 
 ```{r}
 Sengkang <- read.csv("data/Sengkang2023P.csv", stringsAsFactors = TRUE)
-summary(Sengkang)
+
+head(Sengkang, 5)
 ```
 
-```{r}
+# Data Wrangling
 
+```{r}
+df <- Sengkang %>%
+  mutate(Date = lubridate::ym(Date),
+         LeaseBegin = lubridate::ym( paste0(LeaseBegin,"-01")),
+         years_used = as.numeric((Date - LeaseBegin)/365))
+```
+
+Using leaseremain as a factor will generate too many binary variables. Convert them into
+years_used would be easier. Date and LeaseBegin variables must be in date type before
+substracting between the two. The output would be in (drtn) days and thus we have to set
+it to numeric set to years.
+
+# Run Regression
+
+```{r}
+reg_all <- lm(ResalePrice ~ . -Block-LeaseBegin-LeaseRemain, data = df)
+summary(reg_all)
 ```

@@ -398,24 +398,108 @@ recommendations and conclusions.</p>
 <div id="part-1-of-project" class="section level1">
 <h1>Part 1 of Project</h1>
 <p>Load Data In</p>
+<pre><code>## 
+## Attaching package: &#39;dplyr&#39;</code></pre>
+<pre><code>## The following objects are masked from &#39;package:stats&#39;:
+## 
+##     filter, lag</code></pre>
+<pre><code>## The following objects are masked from &#39;package:base&#39;:
+## 
+##     intersect, setdiff, setequal, union</code></pre>
 <pre class="r"><code>Sengkang &lt;- read.csv(&quot;data/Sengkang2023P.csv&quot;, stringsAsFactors = TRUE)
-summary(Sengkang)</code></pre>
-<pre><code>##       Date         Type          Block                   Street          Story          Area       
-##  2022-01:209   3 ROOM: 178   289A   :  26   COMPASSVALE CRES: 255   13 TO 15:406   Min.   : 67.00  
-##  2022-07:208   4 ROOM:1134   338C   :  26   FERNVALE LINK   : 224   07 TO 09:393   1st Qu.: 92.00  
-##  2022-08:191   5 ROOM: 804   289B   :  22   RIVERVALE CRES  : 183   04 TO 06:377   Median : 94.00  
-##  2022-09:189                 288A   :  20   FERNVALE RD     : 154   10 TO 12:341   Mean   : 98.35  
-##  2022-04:187                 288C   :  20   ANCHORVALE CRES : 123   01 TO 03:286   3rd Qu.:110.00  
-##  2022-05:179                 417A   :  20   RIVERVALE DR    : 116   16 TO 18:177   Max.   :124.00  
-##  (Other):953                 (Other):1982   (Other)         :1061   (Other) :136                   
-##                Model       LeaseBegin               LeaseRemain    ResalePrice    
-##  Improved         :546   Min.   :1998   94 years 11 months:  47   Min.   :350000  
-##  Model A          :776   1st Qu.:2002   94 years 10 months:  43   1st Qu.:490000  
-##  Model A2         : 53   Median :2013   94 years 09 months:  42   Median :540000  
-##  Premium Apartment:741   Mean   :2010   94 years 04 months:  41   Mean   :548472  
-##                          3rd Qu.:2016   92 years 04 months:  40   3rd Qu.:590000  
-##                          Max.   :2018   94 years 08 months:  33   Max.   :928000  
-##                                         (Other)           :1870</code></pre>
+
+head(Sengkang, 5)</code></pre>
+<pre><code>##      Date   Type Block           Street    Story Area   Model LeaseBegin        LeaseRemain
+## 1 2022-01 3 ROOM  331C    ANCHORVALE ST 10 TO 12   67 Model A       2015 92 years 09 months
+## 2 2022-01 3 ROOM  209C COMPASSVALE LANE 16 TO 18   67 Model A       2011 88 years 11 months
+## 3 2022-01 3 ROOM  211C COMPASSVALE LANE 10 TO 12   68 Model A       2013 90 years 02 months
+## 4 2022-01 3 ROOM  467B    FERNVALE LINK 04 TO 06   68 Model A       2016 93 years 08 months
+## 5 2022-01 3 ROOM  414B    FERNVALE LINK 07 TO 09   68 Model A       2016  93 years 01 month
+##   ResalePrice
+## 1      420000
+## 2      418000
+## 3      410000
+## 4      382000
+## 5      410000</code></pre>
+</div>
+<div id="data-wrangling" class="section level1">
+<h1>Data Wrangling</h1>
+<pre class="r"><code>df &lt;- Sengkang %&gt;%
+  mutate(Date = lubridate::ym(Date),
+         LeaseBegin = lubridate::ym( paste0(LeaseBegin,&quot;-01&quot;)),
+         years_used = as.numeric((Date - LeaseBegin)/365))</code></pre>
+<p>Using leaseremain as a factor will generate too many binary
+variables. Convert them into years_used would be easier. Date and
+LeaseBegin variables must be in date type before substracting between
+the two. The output would be in (drtn) days and thus we have to set it
+to numeric set to years.</p>
+</div>
+<div id="run-regression" class="section level1">
+<h1>Run Regression</h1>
+<pre class="r"><code>reg_all &lt;- lm(ResalePrice ~ . -Block-LeaseBegin-LeaseRemain, data = df)
+summary(reg_all)</code></pre>
+<pre><code>## 
+## Call:
+## lm(formula = ResalePrice ~ . - Block - LeaseBegin - LeaseRemain, 
+##     data = df)
+## 
+## Residuals:
+##     Min      1Q  Median      3Q     Max 
+## -125635  -19062    -670   16584  127318 
+## 
+## Coefficients:
+##                           Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)             -3.426e+06  1.229e+05 -27.889  &lt; 2e-16 ***
+## Date                     1.914e+02  6.318e+00  30.299  &lt; 2e-16 ***
+## Type4 ROOM               4.936e+04  8.646e+03   5.709 1.30e-08 ***
+## Type5 ROOM               1.116e+05  1.508e+04   7.400 1.97e-13 ***
+## StreetANCHORVALE DR      3.150e+04  6.255e+03   5.036 5.18e-07 ***
+## StreetANCHORVALE LANE   -1.214e+04  7.794e+03  -1.558 0.119486    
+## StreetANCHORVALE LINK    1.199e+04  4.432e+03   2.706 0.006869 ** 
+## StreetANCHORVALE RD     -1.040e+02  4.672e+03  -0.022 0.982237    
+## StreetANCHORVALE ST      4.855e+03  5.574e+03   0.871 0.383902    
+## StreetCOMPASSVALE BOW    9.133e+04  4.986e+03  18.318  &lt; 2e-16 ***
+## StreetCOMPASSVALE CRES   5.777e+03  3.320e+03   1.740 0.082000 .  
+## StreetCOMPASSVALE DR     7.298e+04  4.277e+03  17.062  &lt; 2e-16 ***
+## StreetCOMPASSVALE LANE   1.055e+04  4.358e+03   2.420 0.015601 *  
+## StreetCOMPASSVALE LINK   1.069e+05  5.034e+03  21.242  &lt; 2e-16 ***
+## StreetCOMPASSVALE RD     4.784e+04  5.824e+03   8.214 3.73e-16 ***
+## StreetCOMPASSVALE ST     8.085e+03  5.345e+03   1.513 0.130559    
+## StreetCOMPASSVALE WALK   4.454e+04  6.438e+03   6.918 6.06e-12 ***
+## StreetFERNVALE LANE     -7.851e+03  7.575e+03  -1.036 0.300145    
+## StreetFERNVALE LINK     -1.130e+04  3.522e+03  -3.209 0.001354 ** 
+## StreetFERNVALE RD        8.982e+02  3.953e+03   0.227 0.820297    
+## StreetFERNVALE ST       -1.308e+04  5.968e+03  -2.191 0.028536 *  
+## StreetJLN KAYU          -1.246e+04  9.868e+03  -1.262 0.207017    
+## StreetRIVERVALE CRES    -2.413e+04  3.730e+03  -6.470 1.22e-10 ***
+## StreetRIVERVALE DR       1.221e+04  4.841e+03   2.523 0.011710 *  
+## StreetRIVERVALE ST       1.481e+04  7.411e+03   1.998 0.045852 *  
+## StreetRIVERVALE WALK     4.023e+04  7.520e+03   5.349 9.80e-08 ***
+## StreetSENGKANG CTRL      1.125e+05  6.409e+03  17.560  &lt; 2e-16 ***
+## StreetSENGKANG EAST AVE  1.085e+05  5.572e+03  19.468  &lt; 2e-16 ***
+## StreetSENGKANG EAST RD   4.218e+04  1.062e+04   3.972 7.36e-05 ***
+## StreetSENGKANG EAST WAY  4.735e+04  5.317e+03   8.905  &lt; 2e-16 ***
+## StreetSENGKANG WEST AVE  1.285e+04  9.136e+03   1.406 0.159739    
+## StreetSENGKANG WEST WAY -1.895e+04  4.718e+03  -4.017 6.10e-05 ***
+## Story04 TO 06            2.591e+04  2.343e+03  11.058  &lt; 2e-16 ***
+## Story07 TO 09            4.291e+04  2.316e+03  18.526  &lt; 2e-16 ***
+## Story10 TO 12            4.944e+04  2.390e+03  20.691  &lt; 2e-16 ***
+## Story13 TO 15            5.795e+04  2.313e+03  25.050  &lt; 2e-16 ***
+## Story16 TO 18            6.532e+04  2.877e+03  22.704  &lt; 2e-16 ***
+## Story19 TO 21            6.218e+04  4.310e+03  14.426  &lt; 2e-16 ***
+## Story22 TO 24            7.084e+04  4.858e+03  14.583  &lt; 2e-16 ***
+## Story25 TO 27            6.487e+04  6.734e+03   9.633  &lt; 2e-16 ***
+## Area                     2.757e+03  3.310e+02   8.329  &lt; 2e-16 ***
+## ModelModel A             1.071e+04  3.001e+03   3.568 0.000368 ***
+## ModelModel A2            5.372e+04  5.439e+03   9.876  &lt; 2e-16 ***
+## ModelPremium Apartment   2.034e+04  2.634e+03   7.724 1.75e-14 ***
+## years_used              -7.956e+03  1.723e+02 -46.167  &lt; 2e-16 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 29550 on 2071 degrees of freedom
+## Multiple R-squared:  0.8849, Adjusted R-squared:  0.8825 
+## F-statistic: 361.9 on 44 and 2071 DF,  p-value: &lt; 2.2e-16</code></pre>
 </div>
 
 
