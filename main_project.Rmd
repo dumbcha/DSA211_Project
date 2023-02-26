@@ -83,3 +83,9 @@ it to numeric set to years.
 reg_all <- lm(ResalePrice ~ . -Block-LeaseBegin-LeaseRemain, data = df)
 summary(reg_all)
 ```
+
+
+```{r}
+1+1
+```
+
