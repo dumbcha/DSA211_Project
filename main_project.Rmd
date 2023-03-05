@@ -75,53 +75,25 @@ length(unique(Sengkang$LeaseRemain))
 We can see from the code chunk above that block will have 521, street has 29 and
 LeaseRemain has 226 categorical variables
 
-```{r}
-L1 <- lm(ResalePrice ~ ., data = Sengkang)
-BIC(L1)
-```
-
-We will first calculate the BIC of the regression of all variables.
-
-Hypothetically, Block and Street are related to each other due to location and proximity.
-We will drop Block and calculate the BIC.
-
-```{r}
-L2 <- lm(ResalePrice ~. -Block, data = Sengkang)
-BIC(L2)
-```
-
-We notice that BIC for regression L2 decrease, suggesting that it is a better model. As
-Street still has a number of categorical variables, we will try to condense that even
-further. Proximity within the Sengkang district should be relatively small and should not
-affect.
-
-```{r}
-df <- read.csv("data/hdb-property-information.csv")
-
-property_info <- df %>%
-  filter(bldg_contract_town == "SK") %>%
-  dplyr::select(blk_no, street)
-```
-
-condensed_Sengkang \<- Sengkang %\>%
- \
-group_by(Street) %\>% 
-
-mutate(neighborhood = ifelse(Street == ))
-
-Variables to get rid of: Block, Date, Lease-begin
-
-LM1 : Run all variables LM2: Model\*Area LM3: LM4: Area
-
-LM4.
-
 # Data Wrangling
+We will use the lubridate package to adjust the year and calculate lease years used as a numeric rather than a categorical variable. Since years_used and LeaseRemain are perfected correlated, we will drop LeaseRemaind from the dataframe. 
+
+[site](https://www.mynicehome.gov.sg/lifestyle/places/navigating-the-vales-of-sengkang/),
+the HDB blocks are numbered by 100+, 200+, 300+ and 400+ in Rivervale, Compassvale,
+Anchorvale and Fernvale respectively.
 
 ```{r}
 df <- Sengkang %>%
   mutate(Date = lubridate::ym(Date),
          LeaseBegin = lubridate::ym( paste0(LeaseBegin,"-01")),
-         years_used = as.numeric((Date - LeaseBegin)/365))
+         years_used = as.numeric((Date - LeaseBegin)/365),
+         subzone = ifelse(grepl("^1", Block), "Rivervale",
+                          ifelse(grepl("^2", Block), "Compassvale",
+                                 ifelse(grepl("^3", Block), "Anchorvale",
+                                        ifelse(grepl("4", Block), "Fernvale", "others")))),
+         .before = Street) %>%
+  mutate(subzone= as.factor(subzone)) %>%
+  select(-LeaseRemain, -LeaseBegin)
 ```
 
 Using leaseremain as a factor will generate too many binary variables. Convert them into
@@ -130,12 +102,100 @@ substracting between the two. The output would be in (drtn) days and thus we hav
 it to numeric set to years.
 
 # Run Regression
-
+## All variables
+We will first calculate the BIC of the regression of all variables.
 ```{r}
 reg_all <- lm(ResalePrice ~ ., data = df)
-summary(reg_all)
+BIC(reg_all)
+```
+
+We have three types of location columns now, Block, Street and subzone. There should be high correlation between the X variables for these 3 variables, we will test the BIC number by dropping each variable out and picking the model with the lowest BIC
+
+## Removing Block 
+```{r}
+L1 <- lm(ResalePrice ~ .-Block, data = df)
+```
+## Removing Street
+```{r}
+L2 <- lm(ResalePrice ~ .-Street, 
+         data = df)
+```
+## Removing subzone
+```{r}
+L3 <- lm(ResalePrice ~ .-subzone, 
+         data = df)
+```
+It would seem removing Block would be the best. Now we will compare between street and subzone
+## Removing Block and Street
+```{r}
+L4 <- lm(ResalePrice ~ .-Block-Street, 
+         data = df)
+```
+
+## Removing Block and subzone
+```{r}
+L5 <- lm(ResalePrice ~ .-Block-subzone, data = df)
+```
+
+### Comparing BIC
+```{r}
+BIC_location <- data.frame(lm = c(".-Block",".-Street",".-subzone",".-Block-Street",".-Block-subzone"),
+                              BIC = c(BIC(L1),BIC(L2),BIC(L3),BIC(L4),BIC(L5)))
+BIC_location
+```
+## Visualize L1
+```{r}
+plot(L1)
+```
+
+
+```{r}
+plot(df$Date, df$ResalePrice)
+plot(df$Type, df$ResalePrice)
+plot(df$Block, df$ResalePrice)
+plot(df$years_used, df$ResalePrice)
+plot(df$subzone, df$ResalePrice)
+plot(df$Street, df$ResalePrice)
+plot(df$Story, df$ResalePrice)
+plot(df$Area, log(df$ResalePrice))
+plot(df$Model, df$ResalePrice)
+
+```
+
+```{r, eval = FALSE}
+residual_plot <- function(x,regression){
+  n <- names(x)
+  r <- residuals(regression)
+  for (i in 1:length(x)){
+    plot(x$n[i], r)
+  }
+}
+residual_plot(df, L1)
 ```
 
 ```{r}
-BIC(reg_all)
+r <- residuals(L1)
+plot(df$Date, r,
+     xlab = "Date", ylab = "Residuals")
+plot(df$Type, r,
+     xlab = "Type", ylab = "Residuals")
+plot(df$Block, r,
+     xlab = "Block", ylab = "Residuals")
+plot(df$years_used, r,
+     xlab = "years_used", ylab = "Residuals")
+plot(df$subzone, r,
+     xlab = "subzone", ylab = "Residuals")
+plot(df$Street, r,
+     xlab = "Street", ylab = "Residuals")
+plot(df$Story, r,
+     xlab = "Story", ylab = "Residuals")
+plot(df$Area, r,
+     xlab = "Area", ylab = "Residuals")
+plot(df$Model, r,
+     xlab = "Model", ylab = "Residuals")
 ```
+
+
+
+
+
