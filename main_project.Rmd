@@ -117,11 +117,6 @@ tmap_mode("view")
 tm_shape(sengkang_sp) +
   tm_dots()
 ```
-
-
-
-
-
 From the regression above, we know that there are too many categorical variables to
 consider. We have to condense them accordingly.
 
@@ -209,27 +204,32 @@ We have three types of location columns now, Block, Street and subzone. There sh
 ## Removing Block 
 ```{r}
 L1 <- lm(ResalePrice ~ .-Block, data = df)
+summary(L1)
 ```
 ## Removing Street
 ```{r}
 L2 <- lm(ResalePrice ~ .-Street, 
          data = df)
+summary(L2)
 ```
 ## Removing subzone
 ```{r}
 L3 <- lm(ResalePrice ~ .-subzone, 
          data = df)
+summary(L3)
 ```
 It would seem removing Block would be the best. Now we will compare between street and subzone
 ## Removing Block and Street
 ```{r}
 L4 <- lm(ResalePrice ~ .-Block-Street, 
          data = df)
+summary(L4)
 ```
 
 ## Removing Block and subzone
 ```{r}
 L5 <- lm(ResalePrice ~ .-Block-subzone, data = df)
+summary(L5)
 ```
 
 ### Comparing BIC
@@ -238,24 +238,45 @@ BIC_location <- data.frame(lm = c(".-Block",".-Street",".-subzone",".-Block-Stre
                               BIC = c(BIC(L1),BIC(L2),BIC(L3),BIC(L4),BIC(L5)))
 BIC_location
 ```
+# Checking for multicolinearity
+We will notice that L4 and L5 have no perfect collinearity in the model. However, under L1, there was only one perfect collinearity found. 
+Using our best model so far, L1, we need to fix the perfect multicolinearity present.
+We notice from above that L1 in fact, has perfect collinearity between Street and subzone. We will wrangle the data such that we can ommit one street while assign a binary variable to them. We will drop two of the street to ensure we do not have perfect collinerity. It is important to choose streets with a high p-value so as to see the effects of the more significant streets.
 
-## Visualize L1
 ```{r}
-plot(L1)
+df_1 <- df %>%
+  tidyr::pivot_wider(names_from = Street,
+              values_from = Street, 
+              values_fn = list(Street = ~1), 
+              values_fill = 0) 
 ```
 
-# Interactive Variables
-Note: We will be using L1 as the main regression and adding on to that regression. We know that the model is linear as checked under residual plots assumptions.
-
 ```{r}
-L6 <- lm(ResalePrice ~ .-Block,
-         data = df)
+# Run L1 again with new df
+L1_modified <- lm(ResalePrice ~.-Block,
+                  data = df_1)
+summary(L1_modified)
+# It is understood that Street and Subzone will be correlated. We will remove two variables from Street and rerun
+```
+```{r}
+# We will choose ANCHORVALE LANE and FERNVALE RD that have a corresponding p-value of
+L6 <- lm(ResalePrice ~.-Block-`ANCHORVALE LANE`-`FERNVALE RD`,
+         data = df_1)
 summary(L6)
 BIC(L6)
 ```
+We notice that after removing the 2 variables BIC lowers to 49873.17, lower than initially calculated. We also see that adjusted R square maintains at 0.8857.
+
+## Visualize L6
+```{r}
+plot(L6)
+```
+
+Note: We will be using L1 as the main regression and adding on to that regression. We know that the model is linear as checked under residual plots assumptions. 
+
 ```{r}
 library(fitdistrplus)
-fnorm <- fitdist(residuals(L1), "norm")
+fnorm <- fitdist(residuals(L6), "norm")
 result <- gofstat(fnorm, discrete = FALSE)
 result
 ```
@@ -269,9 +290,17 @@ plot(fnorm)
 
 Since KS statistics = 0.032744 > 0.02956522=Kcrit, we can reject the null hypothesis and thus the data do provide sufficient evidence to show the normal model is the appropriate model.
 
-```{r}
 
+From the L7 model, we can see that ANCHORVALE CRES has a high p-value of 0.93. We will remove that to ensure our model does not have multicolinearity.
+
+
+```{r}
+library(car)
+
+v <- vif(L6)
+car::vi
 ```
+Generally, GVIF above 2 or 3 to suggest potential multi-collinearity. Given that Street and subzone is correlated in some ways due to roads intersections with the subzones, we will bound to see some collinearity there. However, both categories are still useful for its own interpretation. For example, subzone indicates neighbourhoods clustering. There could be other variables such as proximity of schools, clinics and other facilities that attribute to the popularity of the subzone. As for streets, it could be that some streets have more buses operating or that some streets leads to expressway, contributing to ease of commute. hence, even though there are some VIF scores of 5, they are still within acceptable basis.
 
 
 
