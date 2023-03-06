@@ -92,7 +92,8 @@ df <- Sengkang %>%
                                  ifelse(grepl("^3", Block), "Anchorvale",
                                         ifelse(grepl("4", Block), "Fernvale", "others")))),
          .before = Street) %>%
-  mutate(subzone= as.factor(subzone)) %>%
+  mutate(subzone= as.factor(subzone),
+         Date = as.factor(Date)) %>%
   select(-LeaseRemain, -LeaseBegin)
 ```
 
@@ -101,6 +102,20 @@ years_used would be easier. Date and LeaseBegin variables must be in date type b
 substracting between the two. The output would be in (drtn) days and thus we have to set
 it to numeric set to years.
 
+## Find the relationship between independent variables and Resale Price
+```{r}
+plot(df$Date, df$ResalePrice)
+plot(df$Type, df$ResalePrice)
+plot(df$Block, df$ResalePrice)
+plot(df$years_used, df$ResalePrice)
+plot(df$subzone, df$ResalePrice)
+plot(df$Street, df$ResalePrice)
+plot(df$Story, df$ResalePrice)
+plot(df$Area, log(df$ResalePrice))
+plot(df$Model, df$ResalePrice)
+
+```
+
 # Run Regression
 ## All variables
 We will first calculate the BIC of the regression of all variables.
@@ -108,9 +123,30 @@ We will first calculate the BIC of the regression of all variables.
 reg_all <- lm(ResalePrice ~ ., data = df)
 BIC(reg_all)
 ```
-
+## Residual check
+```{r}
+r <- residuals(reg_all)
+plot(df$Date, r,
+     xlab = "Date", ylab = "Residuals")
+plot(df$Type, r,
+     xlab = "Type", ylab = "Residuals")
+plot(df$Block, r,
+     xlab = "Block", ylab = "Residuals")
+plot(df$years_used, r,
+     xlab = "years_used", ylab = "Residuals")
+plot(df$subzone, r,
+     xlab = "subzone", ylab = "Residuals")
+plot(df$Street, r,
+     xlab = "Street", ylab = "Residuals")
+plot(df$Story, r,
+     xlab = "Story", ylab = "Residuals")
+plot(df$Area, r,
+     xlab = "Area", ylab = "Residuals")
+plot(df$Model, r,
+     xlab = "Model", ylab = "Residuals")
+```
+From the residual plots above, we notice all plots points are scattered around the residual =0. This suggesrt that the model assumptions are not violated.
 We have three types of location columns now, Block, Street and subzone. There should be high correlation between the X variables for these 3 variables, we will test the BIC number by dropping each variable out and picking the model with the lowest BIC
-
 ## Removing Block 
 ```{r}
 L1 <- lm(ResalePrice ~ .-Block, data = df)
@@ -143,24 +179,37 @@ BIC_location <- data.frame(lm = c(".-Block",".-Street",".-subzone",".-Block-Stre
                               BIC = c(BIC(L1),BIC(L2),BIC(L3),BIC(L4),BIC(L5)))
 BIC_location
 ```
+
 ## Visualize L1
 ```{r}
 plot(L1)
 ```
 
+# Interactive Variables
+Note: We will be using L1 as the main regression and adding on to that regression. We know that the model is linear as checked under residual plots assumptions.
 
 ```{r}
-plot(df$Date, df$ResalePrice)
-plot(df$Type, df$ResalePrice)
-plot(df$Block, df$ResalePrice)
-plot(df$years_used, df$ResalePrice)
-plot(df$subzone, df$ResalePrice)
-plot(df$Street, df$ResalePrice)
-plot(df$Story, df$ResalePrice)
-plot(df$Area, log(df$ResalePrice))
-plot(df$Model, df$ResalePrice)
-
+L6 <- lm(ResalePrice ~ .-Block,
+         data = df)
+summary(L6)
+BIC(L6)
 ```
+```{r}
+library(fitdistrplus)
+fnorm <- fitdist(residuals(L1), "norm")
+result <- gofstat(fnorm, discrete = FALSE)
+result
+```
+```{r}
+KScritvalue <-1.36/sqrt(length(df$Date))
+KScritvalue
+
+summary(fnorm)
+plot(fnorm)
+```
+
+Since KS statistics = 0.032744 > 0.02956522=Kcrit, we can reject the null hypothesis and thus the data do provide sufficient evidence to show the normal model is the appropriate model.
+
 
 ```{r, eval = FALSE}
 residual_plot <- function(x,regression){
@@ -173,27 +222,7 @@ residual_plot <- function(x,regression){
 residual_plot(df, L1)
 ```
 
-```{r}
-r <- residuals(L1)
-plot(df$Date, r,
-     xlab = "Date", ylab = "Residuals")
-plot(df$Type, r,
-     xlab = "Type", ylab = "Residuals")
-plot(df$Block, r,
-     xlab = "Block", ylab = "Residuals")
-plot(df$years_used, r,
-     xlab = "years_used", ylab = "Residuals")
-plot(df$subzone, r,
-     xlab = "subzone", ylab = "Residuals")
-plot(df$Street, r,
-     xlab = "Street", ylab = "Residuals")
-plot(df$Story, r,
-     xlab = "Story", ylab = "Residuals")
-plot(df$Area, r,
-     xlab = "Area", ylab = "Residuals")
-plot(df$Model, r,
-     xlab = "Model", ylab = "Residuals")
-```
+
 
 
 
