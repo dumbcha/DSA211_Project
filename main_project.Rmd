@@ -54,14 +54,73 @@ Load Data In
 ```{r, echo = FALSE}
 options(width = 100, wrap = "none")
 
-library(dplyr)
+pacman::p_load(dplyr, tmap, sf, jsonlite, readr)
 ```
 
 ```{r}
-Sengkang <- read.csv("data/Sengkang2023P.csv", stringsAsFactors = TRUE)
+Sengkang1 <- read.csv("data/Sengkang2023P.csv", stringsAsFactors = TRUE)
 
-head(Sengkang, 5)
+head(Sengkang1, 5)
 ```
+```{r}
+library(httr)
+geocode <- function(block, streetname) {
+  base_url <- "https://developers.onemap.sg/commonapi/search"
+  address <- paste(block, streetname, sep = " ")
+  query <- list("searchVal" = address, 
+                "returnGeom" = "Y",
+                "getAddrDetails" = "N",
+                "pageNum" = "1")
+  
+  res <- GET(base_url, query = query)
+  restext<-content(res, as="text")
+  
+  output <- jsonlite::fromJSON(restext)  %>% 
+    as.data.frame() %>%
+    dplyr::select("results.LATITUDE", "results.LONGITUDE")
+  return(output)
+}
+```
+
+```{r, eval = FALSE}
+Sengkang$LATITUDE <- 0
+Sengkang$LONGITUDE <- 0
+
+for (i in 1:nrow(Sengkang)){
+  temp_output <- geocode(Sengkang[i, 3], Sengkang[i, 4])
+  
+  Sengkang$LATITUDE[i] <- temp_output$results.LATITUDE
+  Sengkang$LONGITUDE[i] <- temp_output$results.LONGITUDE
+}
+```
+```{r, eval = FALSE}
+write_rds(Sengkang, file ="Sengkang_coords")
+```
+```{r}
+Sengkang <- read_rds("Sengkang_coords")
+```
+
+```{r}
+Sengkang_sf <- st_as_sf(Sengkang, coords = c("LONGITUDE", "LATITUDE"), crs = 4326) |>
+    st_transform(crs = 3414)
+
+glimpse(Sengkang_sf)
+```
+
+```{r}
+library(tmap)
+sengkang_sp <- Sengkang_sf %>%
+  dplyr::select(3:11) %>%
+  as_Spatial()
+tmap_mode("view")
+
+tm_shape(sengkang_sp) +
+  tm_dots()
+```
+
+
+
+
 
 From the regression above, we know that there are too many categorical variables to
 consider. We have to condense them accordingly.
@@ -83,7 +142,7 @@ the HDB blocks are numbered by 100+, 200+, 300+ and 400+ in Rivervale, Compassva
 Anchorvale and Fernvale respectively.
 
 ```{r}
-df <- Sengkang %>%
+df <- Sengkang1 %>%
   mutate(Date = lubridate::ym(Date),
          LeaseBegin = lubridate::ym( paste0(LeaseBegin,"-01")),
          years_used = as.numeric((Date - LeaseBegin)/365),
@@ -210,17 +269,12 @@ plot(fnorm)
 
 Since KS statistics = 0.032744 > 0.02956522=Kcrit, we can reject the null hypothesis and thus the data do provide sufficient evidence to show the normal model is the appropriate model.
 
+```{r}
 
-```{r, eval = FALSE}
-residual_plot <- function(x,regression){
-  n <- names(x)
-  r <- residuals(regression)
-  for (i in 1:length(x)){
-    plot(x$n[i], r)
-  }
-}
-residual_plot(df, L1)
 ```
+
+
+
 
 
 
