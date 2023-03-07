@@ -265,7 +265,18 @@ L6 <- lm(ResalePrice ~.-Block-`ANCHORVALE LANE`-`FERNVALE RD`,
 summary(L6)
 BIC(L6)
 ```
-We notice that after removing the 2 variables BIC lowers to 49873.17, lower than initially calculated. We also see that adjusted R square maintains at 0.8857.
+We notice that after removing the 2 variables BIC lowers to 49873.17, lower than initially calculated. We also see that adjusted R square maintains at 0.8857. 
+
+```{r}
+library(car)
+
+v <- vif(L6)
+v
+```
+Generally, GVIF above 2 or 3 to suggest potential multi-collinearity. Given that Street and subzone is correlated in some ways due to roads intersections with the subzones, we will bound to see some collinearity there. However, both categories are still useful for its own interpretation. For example, subzone indicates neighbourhoods clustering. There could be other variables such as proximity of schools, clinics and other facilities that attribute to the popularity of the subzone. As for streets, it could be that some streets have more buses operating or that some streets leads to expressway, contributing to ease of commute. hence, even though there are some VIF scores of 5, they are still within acceptable basis.
+
+Next, we need to consider Type and Area
+Area is positively related to Type.
 
 ## Visualize L6
 ```{r}
@@ -291,16 +302,11 @@ plot(fnorm)
 Since KS statistics = 0.032744 > 0.02956522=Kcrit, we can reject the null hypothesis and thus the data do provide sufficient evidence to show the normal model is the appropriate model.
 
 
-From the L7 model, we can see that ANCHORVALE CRES has a high p-value of 0.93. We will remove that to ensure our model does not have multicolinearity.
 
-
+## To test correlation between street and subzone
 ```{r}
-library(car)
 
-v <- vif(L6)
-car::vi
 ```
-Generally, GVIF above 2 or 3 to suggest potential multi-collinearity. Given that Street and subzone is correlated in some ways due to roads intersections with the subzones, we will bound to see some collinearity there. However, both categories are still useful for its own interpretation. For example, subzone indicates neighbourhoods clustering. There could be other variables such as proximity of schools, clinics and other facilities that attribute to the popularity of the subzone. As for streets, it could be that some streets have more buses operating or that some streets leads to expressway, contributing to ease of commute. hence, even though there are some VIF scores of 5, they are still within acceptable basis.
 
 
 
