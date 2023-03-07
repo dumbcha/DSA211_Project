@@ -305,7 +305,7 @@ Since KS statistics = 0.032744 > 0.02956522=Kcrit, we can reject the null hypoth
 
 ## To test correlation between street and subzone
 ```{r}
-
+1 +1
 ```
 
 
