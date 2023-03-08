@@ -110,15 +110,19 @@ glimpse(Sengkang_sf)
 ```{r}
 library(tmap)
 sengkang_sp <- Sengkang_sf %>%
-  dplyr::select(3:11) %>%
+  mutate(subzone = as.factor(ifelse(grepl("^1", Block), "Rivervale",
+                          ifelse(grepl("^2", Block), "Compassvale",
+                                 ifelse(grepl("^3", Block), "Anchorvale",
+                                        ifelse(grepl("4", Block), "Fernvale", "others")))))) %>%
+  dplyr::select(3:12) %>%
   as_Spatial()
 tmap_mode("view")
 
 tm_shape(sengkang_sp) +
-  tm_dots()
+  tm_dots(col = "subzone")
 ```
 From the regression above, we know that there are too many categorical variables to
-consider. We have to condense them accordingly.
+consider. We have to condense them accordingly. To understand the dataset more, we can visualise each block on the map and designate their respective subzone. We categorise them in this manner as each neighborhood will have close proximity to their respective facilities, such as schools, malls, childcare centre, etc.
 
 ```{r}
 length(unique(Sengkang$Block))
@@ -305,7 +309,6 @@ Since KS statistics = 0.032744 > 0.02956522=Kcrit, we can reject the null hypoth
 
 ## To test correlation between street and subzone
 ```{r}
-1 +1
 ```
 
 
