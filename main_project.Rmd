@@ -114,9 +114,12 @@ sengkang_sp <- Sengkang_sf %>%
   mutate(subzone = as.factor(ifelse(grepl("^1", Block), "Rivervale",
                           ifelse(grepl("^2", Block), "Compassvale",
                                  ifelse(grepl("^3", Block), "Anchorvale",
-                                        ifelse(grepl("4", Block), "Fernvale", "others")))))) %>%
-  dplyr::select(3:12) %>%
-  as_Spatial()
+                                        ifelse(grepl("4", Block), "Fernvale", "others"))))),
+         Date = lubridate::ym(Date),
+         LeaseBegin = lubridate::ym( paste0(LeaseBegin,"-01")),
+         years_used = as.numeric((Date - LeaseBegin)/365)) %>%
+    as_Spatial()
+  
 tmap_mode("view")
 
 tm_shape(sengkang_sp) +
@@ -311,20 +314,61 @@ L8 <- lm(ResalePrice ~.- Block-`ANCHORVALE LANE`-`FERNVALE RD`+ Area*subzone*Typ
 summary(L8)
 BIC(L8)
 ```
-We will want to include another interaction variable here. This time with Model. Model indicates the current condition of the house as well. Base on the research done, Model A and A2 are older generation models, Premium has a similar structure to Model A and A2 but comes with newer amenities, Improved are units that went through upgrading works. We will interact Model with the Area.
+We will want to include another interaction variable here. This time with Model. Model indicates the current condition of the house as well. Base on the research done, Model A and A2 are older generation models, Premium has a similar structure to Model A and A2 but comes with newer amenities, Improved are units that went through upgrading works. We will interact Model with the years_used.
 
 ```{r}
-L8 <- lm(ResalePrice ~.- Block-`ANCHORVALE LANE`-`FERNVALE RD`+ Area*subzone*Type +Model*years_used,
+L9 <- lm(ResalePrice ~.- Block-`ANCHORVALE LANE`-`FERNVALE RD`+ Area*subzone*Type +Model*years_used,
          data = df_1)
-summary(L8)
-BIC(L8)
+summary(L9)
+BIC(L9)
 ```
+Generally, I would like to know whether higher floors tend to have higher prices.
+```{r}
+L10 <- lm(ResalePrice ~.- Block-`ANCHORVALE LANE`-`FERNVALE RD`+ Area*subzone*Type +Model*years_used + I(Area^2),
+         data = df_1)
+summary(L10)
+BIC(L10)
 
+```
+I am alittle skeptical whether the relationship between Area and Resale Price, years_used and Resale price is linear due to the plots above. 
 
+We will test the regression between Resale Price and this variable alone to see whether higher terms would result in a better result
+
+BIC for L10 decreased while Adjusted Rsquare went up, suggesting that this is a better model.
+```{r}
+L11 <- lm(ResalePrice ~.- Block-`ANCHORVALE LANE`-`FERNVALE RD`+ Area*subzone*Type +Model*years_used + I(Area^2),
+         data = df_1)
+summary(L11)
+BIC(L11)
+```
+```{r}
+L12 <- lm(ResalePrice ~.- Block-`ANCHORVALE LANE`-`FERNVALE RD`+ Area*subzone*Type +Model*years_used + I(Area^2) +I(Area^3),
+         data = df_1)
+summary(L12)
+BIC(L12)
+```
+```{r}
+plot(df_1$Area, residuals(L11))
+```
+We can use higher term for Area
+Moving on to years_used
+```{r}
+L13 <- lm(ResalePrice ~.- Block-`ANCHORVALE LANE`-`FERNVALE RD`+ Area*subzone*Type +Model*years_used + I(Area^2) + I(years_used^2),
+         data = df_1)
+summary(L13)
+BIC(L13)
+```
+```{r}
+L14 <- lm(ResalePrice ~.- Block-`ANCHORVALE LANE`-`FERNVALE RD`+ Area*subzone*Type +Model*years_used + I(Area^2) + I(years_used^2) + I(years_used^3),
+         data = df_1)
+summary(L14)
+BIC(L14)
+```
+Based on the BIC, years_used provides a smaller BIC at higher term ^2. 
 
 ```{r}
 library(fitdistrplus)
-fnorm <- fitdist(residuals(L6), "norm")
+fnorm <- fitdist(residuals(L8), "norm")
 result <- gofstat(fnorm, discrete = FALSE)
 result
 ```
