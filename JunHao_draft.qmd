@@ -1,0 +1,380 @@
+---
+title: "Junhao_draft"
+date: "9 March 2023"
+date-modified: "`r Sys.Date()`"
+number-sections: true
+format: html
+execute: 
+  echo: true
+  eval: true
+  warning: false
+editor: visual
+---
+
+# Scenario
+
+Based on 2022 Singapore HDB resale price (real-life) data sets, your team is supposed to construct a multiple regression model (for one particular district) to explain the HDB resale price (ResalePrice) in dollars with the given independent variables.
+
+-   Date: Transaction Month
+-   Type: HDB Types (3-, 4- or 5-room flats)
+-   Block: Block Number of Flat
+-   Street: Flat's Street Location
+-   Story: Flat's Story
+-   Area: Size in Squared Meters
+-   Model: Flat's Model
+-   LeaseBegin: Year of Lease Start
+-   LeaseRemain: Period of Lease Remaining
+
+## Marking Criteria
+
+Documentation and Presentation: 10 marks
+
+Methodology: 10 marks
+
+R-codes, computer outputs interpretation and graphical explanations: 15 marks
+
+Recommendations and conclusions: 15 marks
+
+## Format:
+
+Written Report: PDF Format: Within 10pages excluding the cover page and Appendix
+
+Appendix: codes with computer outputs
+
+You are required to provide the detailed documentation of how you search your recommended model for inference purpose and justify each step in your data analysis.
+You are also expected to provide model assumption justification and hypothesis testing evidences (R-codes and computer outputs) with clear explanations that your recommended model is the best model among all the models considered according to BIC criterion.
+Based on your final recommended model, state clearly your recommendations and conclusions.
+
+# Part 1 of Project
+
+## Starting off
+
+### Load Package
+
+```{r}
+pacman::p_load(dplyr, tmap, sf, jsonlite, readr, stringr)
+```
+
+### Load Data in
+
+```{r}
+Sengkang <- read.csv("data/Sengkang2023P.csv", stringsAsFactors = TRUE)
+
+head(Sengkang, 5)
+```
+
+## Understanding the Dataset
+
+### Categorical Variables
+
+At first glance, we know that there are many categorical variables found in the dataset.
+The code chunk below calculates the number of unique levels in each factor column.
+
+```{r}
+length(unique(Sengkang$Date))
+length(unique(Sengkang$Type))
+length(unique(Sengkang$Block))
+length(unique(Sengkang$Street))
+length(unique(Sengkang$Model))
+length(unique(Sengkang$LeaseBegin))
+length(unique(Sengkang$LeaseRemain))
+```
+
+From the output above, we see their corresponding categories.
+
+We notice that Lease remain is a factor but it can be turned into a numeric variable for our regression.
+We also notice that LeaseBegin is also a variable in this dataset.
+I will remove this variable from this data set as the significance of this variable is to tell how new is the HDB block.
+This can be captured from the remaining lease where the higher the value to 99, the newer flat.
+Removing lease begin will prevent perfect collinearity.
+
+### Wrangling on LeaseRemain
+
+```{r}
+# Set the LeaseRemain column to a character type
+Sengkang <- Sengkang %>%
+  mutate(LeaseRemain = as.character(LeaseRemain))
+
+# Split String
+str_list <- str_split(Sengkang$LeaseRemain, " ")
+
+for (i in 1:length(str_list)) {
+  if (length(unlist(str_list[i])) > 2) {
+      year <- as.numeric(unlist(str_list[i])[1])
+      month <- as.numeric(unlist(str_list[i])[3])
+      Sengkang$LeaseRemain[i] <- year + round(month/12, 2)
+  }
+  else {
+    year <- as.numeric(unlist(str_list[i])[1])
+    Sengkang$LeaseRemain[i] <- year
+  }
+}
+
+Sengkang <- Sengkang %>%
+  mutate(LeaseRemain = as.numeric(LeaseRemain)) %>%
+  dplyr::select(-LeaseBegin)
+glimpse(Sengkang)
+```
+
+### Visualise relationship between independent and dependent variables
+
+```{r}
+par(mfrow = c(3,1))
+plot(Sengkang$Date, Sengkang$ResalePrice)
+plot(Sengkang$Type, Sengkang$ResalePrice)
+plot(Sengkang$LeaseRemain, Sengkang$ResalePrice)
+```
+
+```{r}
+par(mfrow = c(3,1))
+plot(Sengkang$Story, Sengkang$ResalePrice)
+plot(Sengkang$Area, Sengkang$ResalePrice)
+plot(Sengkang$Model, Sengkang$ResalePrice)
+```
+
+```{r}
+plot(Sengkang$Street, Sengkang$ResalePrice)
+```
+
+As we can see, there are too many variables to plot the boxplot for Street and Block.
+
+### Locations of data
+
+From looking at the address given by Block and Street, we know that Street spreads the blocks out to various locations.
+Usually there are other factors that affect HDB resale prices such as proximity to schools, clinics, childcare centre and many more.
+We want to isolate that into a variable.
+Hence, we will group them by Sengkangs sub zone.
+
+```{r}
+library(httr)
+geocode <- function(block, streetname) {
+  base_url <- "https://developers.onemap.sg/commonapi/search"
+  address <- paste(block, streetname, sep = " ")
+  query <- list("searchVal" = address, 
+                "returnGeom" = "Y",
+                "getAddrDetails" = "N",
+                "pageNum" = "1")
+  
+  res <- GET(base_url, query = query)
+  restext<-content(res, as="text")
+  
+  output <- jsonlite::fromJSON(restext)  %>% 
+    as.data.frame() %>%
+    dplyr::select("results.LATITUDE", "results.LONGITUDE")
+  return(output)
+}
+```
+
+```{r, eval = FALSE}
+sengkang_location <- Sengkang
+sengkang_location$LATITUDE <- 0
+sengkang_location$LONGITUDE <- 0
+
+for (i in 1:nrow(sengkang_location)){
+  temp_output <- geocode(sengkang_location[i, 3], Sengkang[i, 4])
+  
+  sengkang_location$LATITUDE[i] <- temp_output$results.LATITUDE
+  sengkang_location$LONGITUDE[i] <- temp_output$results.LONGITUDE
+}
+```
+
+```{r, eval = FALSE, echo= FALSE}
+write_rds(Sengkang, file ="Sengkang_coords")
+```
+
+```{r, echo = FALSE}
+sengkang_location <- read_rds("Sengkang_coords")
+```
+
+```{r}
+Sengkang_sf <- st_as_sf(sengkang_location, coords = c("LONGITUDE", "LATITUDE"), crs = 4326) |>
+    st_transform(crs = 3414)
+```
+
+```{r}
+library(tmap)
+sengkang_sp <- Sengkang_sf %>%
+  mutate(subzone = as.factor(ifelse(grepl("^1", Block), "Rivervale",
+                          ifelse(grepl("^2", Block), "Compassvale",
+                                 ifelse(grepl("^3", Block), "Anchorvale",
+                                        ifelse(grepl("4", Block), "Fernvale", "others")))))) %>%
+           as_Spatial()
+  
+tmap_mode("view")
+tm_shape(sengkang_sp) +
+  tm_dots(col = "subzone")
+```
+
+From the above, we have segregated the blocks to a categorical variable known as subzone and we see that from the visualisation above, we can confirm that blocks 100+, 200+, 300+, 400+ are segregated to Rivervale, Compassvale, Anchorvale,Fernvale respectively.
+
+We will do the same for our main dataset
+
+```{r}
+Resale <- Sengkang %>%
+  mutate(subzone = ifelse(grepl("^1", Block), "Rivervale",
+                          ifelse(grepl("^2", Block), "Compassvale",
+                                 ifelse(grepl("^3", Block), "Anchorvale",
+                                        ifelse(grepl("4", Block), "Fernvale", "others")))),
+         .before = Street) %>%
+  mutate(subzone= as.factor(subzone))
+```
+
+## Base regression
+
+Now that we have our dataset, we will run a regression on all original variables.
+
+```{r, echo = FALSE}
+L0 <- lm(ResalePrice ~.-subzone, 
+         data = Resale)
+summary(L0)
+BIC(L0)
+```
+
+BIC(L0) = 52075.76
+
+As we can see, there are 31 not defined and this means that there is perfect collinearity in the dataset.
+Most likely, it is due to Street and Block.
+Since they are categorical, one road would have all blocks accounted for, causing perfect collinearity within these variables.
+
+## Base Regression with Subzone
+
+```{r, echo = FALSE}
+L1 <- lm(ResalePrice ~., 
+         data = Resale)
+summary(L1)
+BIC(L1)
+```
+
+BIC(L1 = 52075.76) \## Base Regression without Block We will remove Block from the regression as Street and subzone would explain the locational effects that Block would give to the regression.
+
+```{r, echo = FALSE}
+L2 <- lm(ResalePrice ~ .-Block, 
+         data = Resale)
+summary(L2)
+BIC(L2)
+```
+
+BIC = 49895.9
+
+After running L2, we notice that there is still one perfect correlated variable in the data, under Street.
+
+## Correlation
+
+We will change Street and subzone into a binary variable format.
+
+```{r}
+Resale_binary <- Resale %>%
+  tidyr::pivot_wider(names_from = Street,
+              values_from = Street, 
+              values_fn = list(Street = ~1), 
+              values_fill = 0) %>%
+  tidyr::pivot_wider(names_from = subzone,
+              values_from = subzone, 
+              values_fn = list(subzone = ~1), 
+              values_fill = 0) %>%
+  dplyr::select(-Block)
+```
+
+```{r}
+library(Hmisc)
+df <- data.frame(Resale_binary[8:36], 
+                 Resale_binary[37:40])
+corr_matrix <- rcorr(as.matrix(df), type = "pearson")
+
+collinear_rows <- which(corr_matrix$r > 0.8 & corr_matrix$P < -0.8, arr.ind = TRUE)
+collinear_vars <- unique(collinear_rows[, 1])
+
+# Print the variable names with perfect collinearity
+if (length(collinear_vars) > 0) {
+  print("The following variables have high collinearity:")
+  print(paste0(colnames(df)[collinear_vars], " (r = ", round(corr_matrix$r[collinear_rows], 2), ", p = ", format(corr_matrix$P[collinear_rows], digits=3), ")"))
+} else {
+  print("No variables have high collinearity.")
+}
+```
+
+Now that we know that there is no perfect collinearity between the binary variables, the singular could be due to linear dependencies.
+The code chunk below shows the linear dependencies
+
+```{r}
+alias(L2)
+```
+
+```{r}
+# Run the regression again
+L2_rerun <- lm(ResalePrice~. -Anchorvale-`ANCHORVALE CRES`-`SENGKANG WEST WAY`,
+               data= Resale_binary)
+summary(L2_rerun)
+BIC(L2_rerun)
+```
+
+## Interaction variable
+
+### Visualisation
+
+```{r}
+tmap_mode("view")
+tm_shape(sengkang_sp) +
+  tm_dots(col = "Area")
+```
+
+or visualisation purposes, we plotted the Area.
+We notice that there is clustering of large area flats within one particular sub district.
+We can create an interactive term between Area and subzone to see if there is indeed a significant interaction.
+### L3 Regression (Area\*Subzone)
+
+```{r}
+L3 <- lm(ResalePrice~. -Anchorvale-`ANCHORVALE CRES`-`SENGKANG WEST WAY`+ Area*Rivervale + Area*Compassvale + Area*Fernvale,
+         data = Resale_binary)
+summary(L3)
+BIC(L3)
+```
+
+### L4 Regression: L3 + Area\*Type
+
+Another interaction we want to see is Area and Type.
+
+```{r}
+L4 <- lm(ResalePrice~. -Anchorvale-`ANCHORVALE CRES`-`SENGKANG WEST WAY`+ Area*(Rivervale + Compassvale +Fernvale) +Area*Type,
+         data = Resale_binary)
+summary(L4)
+BIC(L4)
+```
+
+### L5 Regression: L4 + Type\*Subzone
+
+```{r}
+L5 <- lm(ResalePrice~. -Anchorvale-`ANCHORVALE CRES`-`SENGKANG WEST WAY`+ Area*(Rivervale + Compassvale + Fernvale) + Area*Type + Type*(Rivervale +Compassvale + Fernvale),
+         data = Resale_binary)
+summary(L5)
+BIC(L5)
+```
+
+We notice that BIC is lower, with statistical significance for interactive terms Fernvale and roomtype.
+Since number of rooms are associated Area, we want to see its effects and together with the relative subzone.
+
+### L6 Regression: L5 + Area\*Type\*Subzone
+
+```{r}
+L6 <- lm(ResalePrice~. -Anchorvale-`ANCHORVALE CRES`-`SENGKANG WEST WAY`+ Area*(Rivervale + Compassvale + Fernvale) + Area*Type + Type*(Rivervale +Compassvale + Fernvale) + Area*Type*(Rivervale +Compassvale + Fernvale),
+         data = Resale_binary)
+summary(L6)
+BIC(L6)
+```
+
+### L7 Regression: L6 + Model\*LeaseRemain
+
+We will want to include another interaction variable here.
+This time with Model.
+Model indicates the current condition of the house as well.
+Base on the research done, Model A and A2 are older generation models, Premium has a similar structure to Model A and A2 but comes with newer amenities, Improved are units that went through upgrading works.
+We will interact Model with the years_used.
+
+```{r}
+L7 <- lm(ResalePrice~. -Anchorvale-`ANCHORVALE CRES`-`SENGKANG WEST WAY`+ Area*(Rivervale + Compassvale + Fernvale) + Area*Type + Type*(Rivervale +Compassvale + Fernvale) + Area*Type*(Rivervale +Compassvale + Fernvale)+ Model*LeaseRemain,
+         data = Resale_binary)
+summary(L7)
+BIC(L7)
+```
+
+## Higher Term

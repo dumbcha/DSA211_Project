@@ -368,7 +368,7 @@ Based on the BIC, years_used provides a smaller BIC at higher term ^2.
 
 ```{r}
 library(fitdistrplus)
-fnorm <- fitdist(residuals(L8), "norm")
+fnorm <- fitdist(residuals(L14), "norm")
 result <- gofstat(fnorm, discrete = FALSE)
 result
 ```
